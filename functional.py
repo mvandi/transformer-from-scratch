@@ -9,7 +9,7 @@ def scaled_dot_product_attention(
         values: Tensor, keys: Tensor, queries: Tensor, mask: Optional[BoolTensor] = None, ninf: float = -1e4
 ) -> Tuple[Tensor, Tensor]:
     """
-    Attention Is All You Need § 3.2.1 Scaled Dot-Product Attention
+    Attention Is All You Need §3.2.1 - Scaled Dot-Product Attention
     """
     h, d = queries.size(2), queries.size(3)
     # Multiply queries and keys for each training example with every other training example
@@ -35,7 +35,7 @@ def scaled_dot_product_attention(
 
 def positional_encoding(x: Tensor) -> Tensor:
     """
-    Attention Is All You Need § 3.5 Positional Encoding
+    Attention Is All You Need §3.5 - Positional Encoding
     """
     batch_size, seq_length, d_model = x.size()
 

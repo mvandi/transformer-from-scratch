@@ -1,18 +1,18 @@
 import warnings
 from typing import List
 
-import torch.optim as optim
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 
 
 class TransformerLR(_LRScheduler):
     """
-    Attention Is All You Need § 5.3 Optimizer
+    Attention Is All You Need §5.3 - Optimizer
     """
 
     def __init__(
             self,
-            optimizer: optim.Optimizer,
+            optimizer: Optimizer,
             d_model: int,
             warmup_steps: int = 4_000,
             last_epoch: int = -1,

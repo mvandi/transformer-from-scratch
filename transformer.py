@@ -10,7 +10,7 @@ import functional as F
 
 class MultiheadAttention(nn.Module):
     """
-    Attention Is All You Need § 3.2.2 Multi-Head Attention
+    Attention Is All You Need §3.2.2 - Multi-Head Attention
     """
 
     def __init__(self, d_model: int, h: int, bias: bool = True) -> None:
@@ -77,7 +77,7 @@ class ResidualLayerNorm(nn.Module):
 
 class PWFFN(nn.Module):
     """
-    Attention Is All You Need § 3.3 Position-wise Feed-Forward Networks
+    Attention Is All You Need §3.3 - Position-wise Feed-Forward Networks
     """
 
     activations = dict(
@@ -118,7 +118,7 @@ class PWFFN(nn.Module):
 
 class TransformerEmbedding(nn.Module):
     """
-    Attention Is All You Need § 3.4 Embeddings and Softmax
+    Attention Is All You Need §3.4 - Embeddings and Softmax
     """
 
     def __init__(self, vocab_size: int, d_model: int, padding_idx: Optional[int]) -> None:
@@ -139,7 +139,7 @@ class TransformerEmbedding(nn.Module):
 
 class TransformerEncoderLayer(nn.Module):
     """
-    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    Attention Is All You Need §3.1 - Encoder and Decoder Stacks
     """
 
     def __init__(
@@ -174,7 +174,7 @@ class TransformerEncoderLayer(nn.Module):
 
 class TransformerEncoder(nn.Module):
     """
-    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    Attention Is All You Need §3.1 - Encoder and Decoder Stacks
     """
 
     def __init__(
@@ -212,7 +212,7 @@ class TransformerEncoder(nn.Module):
 
 class TransformerDecoderLayer(nn.Module):
     """
-    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    Attention Is All You Need §3.1 - Encoder and Decoder Stacks
     """
 
     def __init__(
@@ -256,7 +256,7 @@ class TransformerDecoderLayer(nn.Module):
 
 class TransformerDecoder(nn.Module):
     """
-    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    Attention Is All You Need §3.1 - Encoder and Decoder Stacks
     """
 
     def __init__(
@@ -300,7 +300,7 @@ class TransformerDecoder(nn.Module):
 
 class Transformer(nn.Module):
     """
-    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    Attention Is All You Need §3.1 - Encoder and Decoder Stacks
     """
 
     def __init__(
@@ -359,7 +359,7 @@ class Transformer(nn.Module):
 
     def make_padding_mask(self, source: Tensor) -> BoolTensor:
         """
-        Attention Is All You Need § 3.2.3 Applications of Attention in our Model
+        Attention Is All You Need §3.2.3 - Applications of Attention in our Model
         """
         batch_size, seq_length = source.size()
         # Helps to ignore paddings while computing the attention scores
@@ -369,7 +369,7 @@ class Transformer(nn.Module):
 
     def make_lookahead_mask(self, target: Tensor) -> BoolTensor:
         """
-        Attention Is All You Need § 3.2.3 Applications of Attention in our Model
+        Attention Is All You Need §3.2.3 - Applications of Attention in our Model
         """
         batch_size, seq_length = target.size()
         # Helps to ignore future values while computing the attention scores
