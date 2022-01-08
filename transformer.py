@@ -1,7 +1,6 @@
 import math
 from typing import Optional
 
-import torch
 import torch.nn as nn
 from torch import BoolTensor, Tensor
 
@@ -236,20 +235,20 @@ class TransformerDecoderLayer(nn.Module):
         self.pwffn_norm = ResidualLayerNorm(d_model, p_drop)
 
     def forward(
-            self, x: Tensor, z: Tensor, padding_mask: Optional[BoolTensor], lookahead_mask: Optional[BoolTensor]
+            self, x: Tensor, z: Tensor, source_mask: Optional[BoolTensor], target_mask: Optional[BoolTensor]
     ) -> Tensor:
         """
         :param x:               Size([N, d_q, d_model])
         :param z:               Size([N, d_k, d_model])
-        :param padding_mask:    Size([N, 1, 1, d_k])
-        :param lookahead_mask:  Size([N, 1, d_q, d_q])
+        :param source_mask:    Size([N, 1, 1, d_k])
+        :param target_mask:  Size([N, 1, d_q, d_q])
         :return:                Size([N, d_q, d_model])
         """
         residual = x
-        x = self.target_attn(x, x, x, lookahead_mask)
+        x = self.target_attn(x, x, x, target_mask)
         x = self.target_norm(x, residual)
         residual = x
-        x = self.encoder_attn(z, z, x, padding_mask)
+        x = self.encoder_attn(z, z, x, source_mask)
         x = self.encoder_norm(x, residual)
         residual = x
         x = self.pwffn(x)
@@ -284,19 +283,19 @@ class TransformerDecoder(nn.Module):
         self.fc = nn.Linear(d_model, vocab_size)
 
     def forward(
-            self, x: Tensor, z: Tensor, padding_mask: Optional[BoolTensor], lookahead_mask: Optional[BoolTensor]
+            self, x: Tensor, z: Tensor, source_mask: Optional[BoolTensor], target_mask: Optional[BoolTensor]
     ) -> Tensor:
         """
         :param x:               Size([N, d_q])
         :param z:               Size([N, d_k, d_model])
-        :param padding_mask:    Size([N, 1, 1, d_k])
-        :param lookahead_mask:  Size([N, 1, d_q, d_q])
+        :param source_mask:    Size([N, 1, 1, d_k])
+        :param target_mask:  Size([N, 1, d_q, d_q])
         :return:                Size([N, d_q, d_t])
         """
         x = self.embedding(x)
         x = self.embedding_dropout(x)
         for layer in self.stack:
-            x = layer(x, z, padding_mask, lookahead_mask)
+            x = layer(x, z, source_mask, target_mask)
         x = self.fc(x)
         return x
 
@@ -308,10 +307,10 @@ class Transformer(nn.Module):
 
     def __init__(
             self,
-            src_vocab_size: int,
-            tgt_vocab_size: int,
-            src_padding_idx: Optional[int],
-            tgt_padding_idx: Optional[int],
+            source_vocab_size: int,
+            target_vocab_size: int,
+            source_padding_idx: Optional[int],
+            target_padding_idx: Optional[int],
             d_model: int = 512,
             h: int = 8,
             d_ff: Optional[int] = 2048,
@@ -326,8 +325,8 @@ class Transformer(nn.Module):
             num_decoder_layers = num_encoder_layers
 
         self.encoder = TransformerEncoder(
-            src_vocab_size,
-            src_padding_idx,
+            source_vocab_size,
+            source_padding_idx,
             d_model,
             h,
             d_ff,
@@ -336,8 +335,8 @@ class Transformer(nn.Module):
             num_encoder_layers
         )
         self.decoder = TransformerDecoder(
-            tgt_vocab_size,
-            tgt_padding_idx,
+            target_vocab_size,
+            target_padding_idx,
             d_model,
             h,
             d_ff,
@@ -346,7 +345,8 @@ class Transformer(nn.Module):
             num_decoder_layers
         )
 
-        self.src_padding_idx = src_padding_idx
+        self.source_padding_idx = source_padding_idx
+        self.target_padding_idx = target_padding_idx
 
     def forward(self, source: Tensor, target: Tensor) -> Tensor:
         """
@@ -354,29 +354,35 @@ class Transformer(nn.Module):
         :param target: Size([N, d_q])
         :return:    Size([N, d_q, d_t])
         """
-        padding_mask = self.make_padding_mask(source)
-        lookahead_mask = self.make_lookahead_mask(target)
-        z = self.encoder(source, padding_mask)
-        y = self.decoder(target, z, padding_mask, lookahead_mask)
+        source_mask = self.make_source_mask(source)
+        target_mask = self.make_target_mask(target)
+        z = self.encoder(source, source_mask)
+        y = self.decoder(target, z, source_mask, target_mask)
         return y
 
-    def make_padding_mask(self, source: Tensor) -> BoolTensor:
+    def make_source_mask(self, source: Tensor) -> BoolTensor:
         """
         Attention Is All You Need §3.2.3 - Applications of Attention in our Model
         """
         batch_size, seq_length = source.size()
         # Helps to ignore paddings while computing the attention scores
-        # padding_mask: Size([N, 1, 1, seq_length])
-        padding_mask = torch.ne(source, self.src_padding_idx) == 0
-        return padding_mask.reshape(batch_size, 1, 1, seq_length).to(source.device)
+        # source_mask: Size([N, 1, 1, seq_length])
+        mask = F.make_padding_mask(source, self.source_padding_idx)
 
-    def make_lookahead_mask(self, target: Tensor) -> BoolTensor:
+        return mask.reshape(batch_size, 1, 1, seq_length).to(source.device)
+
+    def make_target_mask(self, target: Tensor) -> BoolTensor:
         """
         Attention Is All You Need §3.2.3 - Applications of Attention in our Model
         """
         batch_size, seq_length = target.size()
         # Helps to ignore future values while computing the attention scores
-        # lookahead_mask: (N, 1, seq_length, seq_length)
-        lookahead_mask = torch.ones(seq_length, seq_length).tril() == 0
+        # target_mask: (N, 1, seq_length, seq_length)
+        lookahead_mask = F.make_lookahead_mask(seq_length).to(target.device)
+        lookahead_mask = lookahead_mask.expand(batch_size, 1, seq_length, seq_length)
 
-        return lookahead_mask.expand(batch_size, 1, seq_length, seq_length).to(target.device)
+        padding_mask = F.make_padding_mask(target, self.target_padding_idx)
+        padding_mask = padding_mask.reshape(batch_size, 1, 1, seq_length)
+        padding_mask = padding_mask.repeat(1, 1, seq_length, 1)
+
+        return lookahead_mask & padding_mask

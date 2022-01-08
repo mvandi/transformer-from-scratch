@@ -62,3 +62,15 @@ def positional_encoding_matrix(
     pe[:, 1::2] = torch.cos(radians)
 
     return pe
+
+
+def make_padding_mask(x: Tensor, padding_idx: Optional[int] = None) -> BoolTensor:
+    if padding_idx is None:
+        mask = torch.ones_like(x)
+    else:
+        mask = torch.ne(x, padding_idx)
+    return mask != 0
+
+
+def make_lookahead_mask(seq_length: int) -> BoolTensor:
+    return torch.ones(seq_length, seq_length).tril() != 0
