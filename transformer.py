@@ -2,14 +2,15 @@ import math
 from typing import Optional
 
 import torch
-from torch import nn, BoolTensor, Tensor
+import torch.nn as nn
+from torch import BoolTensor, Tensor
 
 import functional as F
 
 
 class MultiheadAttention(nn.Module):
     """
-    Masked Multi-Head Self-Attention
+    Attention Is All You Need § 3.2.2 Multi-Head Attention
     """
 
     def __init__(self, d_model: int, h: int, bias: bool = True) -> None:
@@ -58,10 +59,10 @@ class MultiheadAttention(nn.Module):
 
 class ResidualLayerNorm(nn.Module):
 
-    def __init__(self, d_model, dropout_p):
+    def __init__(self, d_model, p_drop):
         super(self.__class__, self).__init__()
         self.norm = nn.LayerNorm(d_model)
-        self.dropout = nn.Dropout(dropout_p)
+        self.dropout = nn.Dropout(p_drop)
 
     def forward(self, x, residual):
         """
@@ -69,15 +70,16 @@ class ResidualLayerNorm(nn.Module):
         :param residual: Size([N, d_q, d_model])
         :return:         Size([N, d_q, d_model])
         """
-        out = self.norm(x + residual)
-        out = self.dropout(out)
-        return out
+        x = self.dropout(x)
+        x = self.norm(x + residual)
+        return x
 
 
 class PWFFN(nn.Module):
     """
-    Position-wise Feed-Forward Network
+    Attention Is All You Need § 3.3 Position-wise Feed-Forward Networks
     """
+
     activations = dict(
         relu=nn.ReLU,
         gelu=nn.GELU
@@ -114,7 +116,10 @@ class PWFFN(nn.Module):
         return self.fc(x)
 
 
-class Embedding(nn.Module):
+class TransformerEmbedding(nn.Module):
+    """
+    Attention Is All You Need § 3.4 Embeddings and Softmax
+    """
 
     def __init__(self, vocab_size: int, d_model: int, padding_idx: Optional[int]) -> None:
         super(self.__class__, self).__init__()
@@ -132,7 +137,10 @@ class Embedding(nn.Module):
         return out
 
 
-class EncoderBlock(nn.Module):
+class TransformerEncoderLayer(nn.Module):
+    """
+    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    """
 
     def __init__(
             self,
@@ -140,14 +148,14 @@ class EncoderBlock(nn.Module):
             h: int,
             d_ff: Optional[int],
             activation: Optional[str],
-            dropout_p: float
+            p_drop: float
     ) -> None:
         super(self.__class__, self).__init__()
 
         self.source_attn = MultiheadAttention(d_model, h)
-        self.source_norm = ResidualLayerNorm(d_model, dropout_p)
+        self.source_norm = ResidualLayerNorm(d_model, p_drop)
         self.pwffn = PWFFN(d_model, d_ff, activation)
-        self.pwffn_norm = ResidualLayerNorm(d_model, dropout_p)
+        self.pwffn_norm = ResidualLayerNorm(d_model, p_drop)
 
     def forward(self, x: Tensor, mask: Optional[BoolTensor]) -> Tensor:
         """
@@ -164,7 +172,10 @@ class EncoderBlock(nn.Module):
         return x
 
 
-class Encoder(nn.Module):
+class TransformerEncoder(nn.Module):
+    """
+    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    """
 
     def __init__(
             self,
@@ -173,16 +184,16 @@ class Encoder(nn.Module):
             d_model: int,
             h: int,
             d_ff: Optional[int],
-            dropout_p: float,
+            p_drop: float,
             activation: Optional[str],
             num_layers: int
     ) -> None:
         super(self.__class__, self).__init__()
 
-        self.embedding = Embedding(vocab_size, d_model, padding_idx)
-        self.embedding_dropout = nn.Dropout(dropout_p)
+        self.embedding = TransformerEmbedding(vocab_size, d_model, padding_idx)
+        self.embedding_dropout = nn.Dropout(p_drop)
         self.stack = nn.ModuleList([
-            EncoderBlock(d_model, h, d_ff, activation, dropout_p)
+            TransformerEncoderLayer(d_model, h, d_ff, activation, p_drop)
             for _ in range(num_layers)
         ])
 
@@ -192,14 +203,17 @@ class Encoder(nn.Module):
         :param mask: Size([N, 1, 1, d_k])
         :return:     Size([N, d_k, d_model])
         """
-        out = self.embedding(x)
-        out = self.embedding_dropout(out)
+        x = self.embedding(x)
+        x = self.embedding_dropout(x)
         for layer in self.stack:
-            out = layer(out, mask)
-        return out
+            x = layer(x, mask)
+        return x
 
 
-class DecoderBlock(nn.Module):
+class TransformerDecoderLayer(nn.Module):
+    """
+    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    """
 
     def __init__(
             self,
@@ -207,16 +221,16 @@ class DecoderBlock(nn.Module):
             h: int,
             d_ff: Optional[int],
             activation: Optional[str],
-            dropout_p: float
+            p_drop: float
     ) -> None:
         super(self.__class__, self).__init__()
 
         self.target_attn = MultiheadAttention(d_model, h)
-        self.target_norm = ResidualLayerNorm(d_model, dropout_p)
+        self.target_norm = ResidualLayerNorm(d_model, p_drop)
         self.encoder_attn = MultiheadAttention(d_model, h)
-        self.encoder_norm = ResidualLayerNorm(d_model, dropout_p)
+        self.encoder_norm = ResidualLayerNorm(d_model, p_drop)
         self.pwffn = PWFFN(d_model, d_ff, activation)
-        self.pwffn_norm = ResidualLayerNorm(d_model, dropout_p)
+        self.pwffn_norm = ResidualLayerNorm(d_model, p_drop)
 
     def forward(
             self, x: Tensor, z: Tensor, padding_mask: Optional[BoolTensor], lookahead_mask: Optional[BoolTensor]
@@ -240,7 +254,10 @@ class DecoderBlock(nn.Module):
         return x
 
 
-class Decoder(nn.Module):
+class TransformerDecoder(nn.Module):
+    """
+    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    """
 
     def __init__(
             self,
@@ -249,16 +266,16 @@ class Decoder(nn.Module):
             d_model: int,
             h: int,
             d_ff: Optional[int],
-            dropout_p: float,
+            p_drop: float,
             activation: Optional[str],
             num_layers: int
     ) -> None:
         super(self.__class__, self).__init__()
 
-        self.embedding = Embedding(vocab_size, d_model, padding_idx)
-        self.embedding_dropout = nn.Dropout(dropout_p)
+        self.embedding = TransformerEmbedding(vocab_size, d_model, padding_idx)
+        self.embedding_dropout = nn.Dropout(p_drop)
         self.stack = nn.ModuleList([
-            DecoderBlock(d_model, h, d_ff, activation, dropout_p)
+            TransformerDecoderLayer(d_model, h, d_ff, activation, p_drop)
             for _ in range(num_layers)
         ])
         self.fc = nn.Linear(d_model, vocab_size)
@@ -273,15 +290,18 @@ class Decoder(nn.Module):
         :param lookahead_mask:  Size([N, 1, d_q, d_q])
         :return:                Size([N, d_q, d_t])
         """
-        out = self.embedding(x)
-        out = self.embedding_dropout(out)
+        x = self.embedding(x)
+        x = self.embedding_dropout(x)
         for layer in self.stack:
-            out = layer(out, z, padding_mask, lookahead_mask)
-        out = self.fc(out)
-        return out
+            x = layer(x, z, padding_mask, lookahead_mask)
+        x = self.fc(x)
+        return x
 
 
 class Transformer(nn.Module):
+    """
+    Attention Is All You Need § 3.1 Encoder and Decoder Stacks
+    """
 
     def __init__(
             self,
@@ -292,7 +312,7 @@ class Transformer(nn.Module):
             d_model: int = 512,
             h: int = 8,
             d_ff: Optional[int] = 2048,
-            dropout_p: float = 0.1,
+            p_drop: float = 0.1,
             activation: Optional[str] = None,
             num_encoder_layers: int = 6,
             num_decoder_layers: Optional[int] = None
@@ -302,23 +322,23 @@ class Transformer(nn.Module):
         if num_decoder_layers is None:
             num_decoder_layers = num_encoder_layers
 
-        self.encoder = Encoder(
+        self.encoder = TransformerEncoder(
             src_vocab_size,
             src_padding_idx,
             d_model,
             h,
             d_ff,
-            dropout_p,
+            p_drop,
             activation,
             num_encoder_layers
         )
-        self.decoder = Decoder(
+        self.decoder = TransformerDecoder(
             tgt_vocab_size,
             tgt_padding_idx,
             d_model,
             h,
             d_ff,
-            dropout_p,
+            p_drop,
             activation,
             num_decoder_layers
         )
@@ -334,10 +354,13 @@ class Transformer(nn.Module):
         padding_mask = self.make_padding_mask(source)
         lookahead_mask = self.make_lookahead_mask(target)
         z = self.encoder(source, padding_mask)
-        out = self.decoder(target, z, padding_mask, lookahead_mask)
-        return out
+        y = self.decoder(target, z, padding_mask, lookahead_mask)
+        return y
 
     def make_padding_mask(self, source: Tensor) -> BoolTensor:
+        """
+        Attention Is All You Need § 3.2.3 Applications of Attention in our Model
+        """
         batch_size, seq_length = source.size()
         # Helps to ignore paddings while computing the attention scores
         # padding_mask: Size([N, 1, 1, seq_length])
@@ -345,6 +368,9 @@ class Transformer(nn.Module):
         return padding_mask.reshape(batch_size, 1, 1, seq_length).to(source.device)
 
     def make_lookahead_mask(self, target: Tensor) -> BoolTensor:
+        """
+        Attention Is All You Need § 3.2.3 Applications of Attention in our Model
+        """
         batch_size, seq_length = target.size()
         # Helps to ignore future values while computing the attention scores
         # lookahead_mask: (N, 1, seq_length, seq_length)

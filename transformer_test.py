@@ -1,4 +1,5 @@
 import time
+
 import torch
 
 from transformer import Transformer
