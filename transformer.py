@@ -238,11 +238,11 @@ class TransformerDecoderLayer(nn.Module):
             self, x: Tensor, z: Tensor, source_mask: Optional[BoolTensor], target_mask: Optional[BoolTensor]
     ) -> Tensor:
         """
-        :param x:               Size([N, d_q, d_model])
-        :param z:               Size([N, d_k, d_model])
-        :param source_mask:    Size([N, 1, 1, d_k])
-        :param target_mask:  Size([N, 1, d_q, d_q])
-        :return:                Size([N, d_q, d_model])
+        :param x:           Size([N, d_q, d_model])
+        :param z:           Size([N, d_k, d_model])
+        :param source_mask: Size([N, 1, 1, d_k])
+        :param target_mask: Size([N, 1, d_q, d_q])
+        :return:            Size([N, d_q, d_model])
         """
         residual = x
         x = self.target_attn(x, x, x, target_mask)
@@ -286,11 +286,11 @@ class TransformerDecoder(nn.Module):
             self, x: Tensor, z: Tensor, source_mask: Optional[BoolTensor], target_mask: Optional[BoolTensor]
     ) -> Tensor:
         """
-        :param x:               Size([N, d_q])
-        :param z:               Size([N, d_k, d_model])
-        :param source_mask:    Size([N, 1, 1, d_k])
-        :param target_mask:  Size([N, 1, d_q, d_q])
-        :return:                Size([N, d_q, d_t])
+        :param x:           Size([N, d_q])
+        :param z:           Size([N, d_k, d_model])
+        :param source_mask: Size([N, 1, 1, d_k])
+        :param target_mask: Size([N, 1, d_q, d_q])
+        :return:            Size([N, d_q, d_t])
         """
         x = self.embedding(x)
         x = self.embedding_dropout(x)
@@ -369,7 +369,7 @@ class Transformer(nn.Module):
         # source_mask: Size([N, 1, 1, seq_length])
         mask = F.make_padding_mask(source, self.source_padding_idx)
 
-        return mask.reshape(batch_size, 1, 1, seq_length).to(source.device)
+        return mask.reshape(batch_size, 1, 1, seq_length)
 
     def make_target_mask(self, target: Tensor) -> BoolTensor:
         """

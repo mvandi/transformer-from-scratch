@@ -29,7 +29,7 @@ if __name__ == "__main__":
     ).to(device)
     model.eval()
 
-    for _ in range(2):
+    for _ in range(11):
         start = time.perf_counter()
         out = model(src, tgt[:, :-1])
         elapsed = time.perf_counter() - start
