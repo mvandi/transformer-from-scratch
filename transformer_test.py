@@ -22,6 +22,7 @@ if __name__ == "__main__":
         tgt_padding_idx=0,
     ).to(device)
     model.eval()
+
     for _ in range(2):
         start = time.perf_counter()
         out = model(src, tgt[:, :-1])

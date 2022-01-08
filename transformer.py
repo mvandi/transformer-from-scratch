@@ -53,18 +53,21 @@ class MultiheadAttention(nn.Module):
     def project(self, projection: nn.Module, x: Tensor) -> Tensor:
         batch_size, seq_length = x.size(0), x.size(1)
         out = projection(x)
-        # Split the embedding into h different pieces (heads)
+        # Split the projected tensor into heads
         return out.reshape(batch_size, seq_length, self.h, self.d)
 
 
 class ResidualLayerNorm(nn.Module):
+    """
+    Attention Is All You Need §5.4 - Regularization
+    """
 
-    def __init__(self, d_model, p_drop):
+    def __init__(self, d_model: int, p_drop: float) -> None:
         super(self.__class__, self).__init__()
         self.norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(p_drop)
 
-    def forward(self, x, residual):
+    def forward(self, x: Tensor, residual: Tensor) -> Tensor:
         """
         :param x:        Size([N, d_q, d_model])
         :param residual: Size([N, d_q, d_model])
@@ -184,8 +187,8 @@ class TransformerEncoder(nn.Module):
             d_model: int,
             h: int,
             d_ff: Optional[int],
-            p_drop: float,
             activation: Optional[str],
+            p_drop: float,
             num_layers: int
     ) -> None:
         super(self.__class__, self).__init__()
@@ -266,8 +269,8 @@ class TransformerDecoder(nn.Module):
             d_model: int,
             h: int,
             d_ff: Optional[int],
-            p_drop: float,
             activation: Optional[str],
+            p_drop: float,
             num_layers: int
     ) -> None:
         super(self.__class__, self).__init__()
@@ -312,8 +315,8 @@ class Transformer(nn.Module):
             d_model: int = 512,
             h: int = 8,
             d_ff: Optional[int] = 2048,
-            p_drop: float = 0.1,
             activation: Optional[str] = None,
+            p_drop: float = 0.1,
             num_encoder_layers: int = 6,
             num_decoder_layers: Optional[int] = None
     ) -> None:
@@ -328,8 +331,8 @@ class Transformer(nn.Module):
             d_model,
             h,
             d_ff,
-            p_drop,
             activation,
+            p_drop,
             num_encoder_layers
         )
         self.decoder = TransformerDecoder(
@@ -338,8 +341,8 @@ class Transformer(nn.Module):
             d_model,
             h,
             d_ff,
-            p_drop,
             activation,
+            p_drop,
             num_decoder_layers
         )
 
